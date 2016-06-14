@@ -40,7 +40,7 @@ def used_columns(stmt):
 
 
 def format_column(column_name):
-    if column_name in ('time', 'change'):
+    if re.match('(time|change)', column_name, re.IGNORECASE):
         return '`{}`'.format(column_name)
     else:
         return column_name
