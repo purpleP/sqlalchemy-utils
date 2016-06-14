@@ -39,6 +39,13 @@ def used_columns(stmt):
     return columns.keys()
 
 
+def format_column(column_name):
+    if column_name in ('time', 'change'):
+        return '`{}`'.format(column_name)
+    else:
+        return column_name
+
+
 @compiles(Merge, 'mysql')
 def mysql_merge(insert_stmt, compiler, **kwargs):
     columns = used_columns(insert_stmt)
@@ -49,7 +56,7 @@ def mysql_merge(insert_stmt, compiler, **kwargs):
     insert = compiler.visit_insert(insert_stmt, **kwargs)
     ondup = 'ON DUPLICATE KEY UPDATE'
     updates = ', '.join(
-        '%s = VALUES(%s)' % (c.name, c.name)
+        '{name} = VALUES({name})'.format(name=format_column(c.name))
         for c in insert_stmt.table.columns
         if c.name in columns
     )
