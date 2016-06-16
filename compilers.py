@@ -39,13 +39,6 @@ def used_columns(stmt):
     return columns.keys()
 
 
-def format_column(column_name):
-    if re.match('(time|change)', column_name, re.IGNORECASE):
-        return '`{}`'.format(column_name)
-    else:
-        return column_name
-
-
 @compiles(Merge, 'mysql')
 def mysql_merge(insert_stmt, compiler, **kwargs):
     columns = used_columns(insert_stmt)
@@ -56,12 +49,12 @@ def mysql_merge(insert_stmt, compiler, **kwargs):
     insert = compiler.visit_insert(insert_stmt, **kwargs)
     ondup = 'ON DUPLICATE KEY UPDATE'
     updates = ', '.join(
-        '{name} = VALUES({name})'.format(name=format_column(c.name))
+        '{name} = VALUES({name})'.format(name=compiler.preparer.quote(c.name))
         for c in insert_stmt.table.columns
         if c.name in columns
     )
     if autoinc is not None:
-        last_id = '%s = LAST_INSERT_ID(%s)' % (autoinc, autoinc)
+        last_id = '{inc} = LAST_INSERT_ID({inc})'.format(inc=autoinc)
         if updates:
             updates = ', '.join((last_id, updates))
         else:
