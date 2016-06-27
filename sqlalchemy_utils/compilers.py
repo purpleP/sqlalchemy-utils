@@ -6,18 +6,18 @@ from sqlalchemy.ext.compiler import compiles
 
 
 class MakeADate(Cast):
-     def __init__(self, elem):
-         super(MakeADate, self).__init__(elem, Date)
+    def __init__(self, elem):
+        super(MakeADate, self).__init__(elem, Date)
 
 
 @compiles(MakeADate)
 def _default_date(elem, compiler, **kw):
-     return compiler.visit_cast(elem, **kw)
+    return compiler.visit_cast(elem, **kw)
 
 
 @compiles(MakeADate, "sqlite")
 def _sqlite_date(elem, compiler, **kw):
-     return compiler.process(elem.clause, **kw)
+    return compiler.process(elem.clause, **kw)
 
 
 class Merge(Insert):

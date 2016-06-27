@@ -10,6 +10,7 @@ Base = declarative_base()
 @pytest.fixture(params=('sqlite', 'mysql'))
 def session(request):
     engine = request.getfuncargvalue(request.param)
+
     def fin():
         sess.close()
         Base.metadata.drop_all(engine)
