@@ -24,6 +24,7 @@ dates = (
      date(2016, 1, 2),
 )
 
+
 def test_date(session):
     dates = (
         date(2016, 1, 1),

@@ -7,6 +7,7 @@ setup(
     install_requires=[
         'sqlalchemy',
         'pytest',
+        'frozendict',
     ],
     packages=['sqlalchemy_utils'],
     url='',

@@ -26,10 +26,8 @@ class Foo(Base):
     def __repr__(self):
         return 'Foo a={a}, b={b}'.format(a=self.a, b=self.b)
 
-
     def to_dict(self):
         return {'a': self.a, 'b': self.b}
-
 
     @staticmethod
     def from_dict(dict_):
