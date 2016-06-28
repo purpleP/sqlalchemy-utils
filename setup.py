@@ -2,14 +2,14 @@
 from distutils.core import setup
 
 setup(
-    name='sqlalchemy-utils',
+    name='sqlalchemy_utils',
     version='',
     install_requires=[
         'sqlalchemy',
         'pytest',
         'frozendict',
     ],
-    packages=['sqlalchemy_utils'],
+    packages=['sqlalchemy_utils.compilers'],
     url='',
     license='MIT',
     author='michael',
