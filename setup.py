@@ -9,7 +9,7 @@ setup(
         'pytest',
         'frozendict',
     ],
-    packages=['sqlalchemy_utils.compilers'],
+    packages=['sqlalchemy_utils'],
     url='',
     license='MIT',
     author='michael',
