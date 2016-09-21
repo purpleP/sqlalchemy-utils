@@ -15,6 +15,12 @@ def _default_date(elem, compiler, **kw):
     return compiler.visit_cast(elem, **kw)
 
 
+@compiles(TINYINT, 'sqlite')
+@compiles(SMALLINT, 'sqlite')
+def mysql_int_to_sqlite(type_, compiler, **kwargs):
+    return 'INTEGER'
+
+
 @compiles(MakeADate, "sqlite")
 def _sqlite_date(elem, compiler, **kw):
     return compiler.process(elem.clause, **kw)
