@@ -1,8 +1,11 @@
 import re
-from sqlalchemy import Integer, Date
-from sqlalchemy.sql.expression import Insert, insert
-from sqlalchemy.sql.elements import Cast
+
+from sqlalchemy import SMALLINT, Date, Integer
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.elements import Cast
+from sqlalchemy.sql.expression import Insert, insert
+
 
 
 class MakeADate(Cast):
