@@ -1,6 +1,6 @@
-from copy import deepcopy
+from itertools import chain
+
 import pytest
-from frozendict import frozendict
 
 from sqlalchemy import (
     create_engine,
@@ -11,9 +11,9 @@ from sqlalchemy import (
     ForeignKey
 )
 from sqlalchemy.sql.expression import insert
-from compilers import Merge
 from sqlalchemy.orm import relationship
-from fixtures import Base, session, sqlite, mysql
+from sqlalchemy_utils.compilers import Merge
+from tests.fixtures import Base, session, sqlite, mysql
 
 
 class Foo(Base):
@@ -53,11 +53,11 @@ def test_merge(session, initial_items, items_to_merge):
     items = {
         1: {'id': 1, 'change': '1', 'a': 'a', 'b': 'b'},
     }
-    session.execute(insert(Foo, initial_items.values()))
-    session.execute(Merge(Foo, items.values()))
+    session.execute(insert(Foo, tuple(initial_items.values())))
+    session.execute(Merge(Foo, tuple(items.values())))
     session.commit()
     foos = {
         foo.id: foo._asdict()
         for foo in session.query(Foo.id, Foo.change, Foo.a, Foo.b).all()
     }
-    assert dict(initial_items, **items) == foos
+    assert dict(chain(initial_items.items(), items.items())) == foos

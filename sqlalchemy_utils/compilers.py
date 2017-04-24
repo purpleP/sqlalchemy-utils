@@ -1,11 +1,17 @@
+from inspect import getmro, getmembers, isclass
+from itertools import tee
+from functools import reduce, partial
+
 import re
 
 from sqlalchemy import SMALLINT, Date, Integer
-from sqlalchemy.dialects.mysql import TINYINT
+from sqlalchemy.dialects import mysql
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.elements import Cast
 from sqlalchemy.sql.expression import Insert, insert
 
+
+mysql_types = *(m for name, m in getmembers(mysql, isclass) if name.isupper()),
 
 
 class MakeADate(Cast):
@@ -18,13 +24,27 @@ def _default_date(elem, compiler, **kw):
     return compiler.visit_cast(elem, **kw)
 
 
-@compiles(TINYINT, 'sqlite')
-@compiles(SMALLINT, 'sqlite')
-def mysql_int_to_sqlite(type_, compiler, **kwargs):
-    return 'INTEGER'
+def compiles_many(func=None, to=None, types=()):
+    if not func:
+        return partial(compiles_many, to=to, types=types)
+    return reduce(lambda f, t: compiles(t, to)(f), types, func)
 
 
-@compiles(MakeADate, "sqlite")
+@compiles_many(to='sqlite', types=mysql_types)
+def mysql_base(type_, compiler, **kwargs):
+    mro = getmro(type_.__class__)
+    basetype = next(n for p, n in pairwise(mro) if p.__module__ != n.__module__)
+    some = getattr(compiler, 'visit_' + basetype.__name__.upper())(basetype, **kwargs)
+    return some
+
+
+def pairwise(sequence):
+    a, b = tee(sequence)
+    next(b)
+    return zip(a, b)
+
+
+@compiles(MakeADate, 'sqlite')
 def _sqlite_date(elem, compiler, **kw):
     return compiler.process(elem.clause, **kw)
 

@@ -23,7 +23,7 @@ def session(request):
 
 @pytest.fixture()
 def mysql(request):
-    return create_engine('mysql://root:root@127.0.0.1:3306/test')
+    return create_engine('mysql://root@127.0.0.1:3306/test')
 
 
 @pytest.fixture()
