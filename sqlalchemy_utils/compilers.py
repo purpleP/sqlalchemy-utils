@@ -11,7 +11,7 @@ from sqlalchemy.sql.elements import Cast
 from sqlalchemy.sql.expression import Insert, insert
 
 
-mysql_types = *(m for name, m in getmembers(mysql, isclass) if name.isupper()),
+mysql_types = tuple(m for name, m in getmembers(mysql, isclass) if name.isupper())
 
 
 class MakeADate(Cast):
