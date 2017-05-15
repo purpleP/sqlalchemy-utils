@@ -4,8 +4,9 @@ from functools import reduce, partial
 
 import re
 
+from sqlalchemy.sql.expression import Executable, ClauseElement
 from sqlalchemy import SMALLINT, Date, Integer
-from sqlalchemy.dialects import mysql
+from sqlalchemy.dialects import mysql, postgresql, sqlite
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.elements import Cast
 from sqlalchemy.sql.expression import Insert, insert
@@ -50,7 +51,11 @@ def _sqlite_date(elem, compiler, **kw):
 
 
 class Merge(Insert):
-    pass
+    def __init__(self, table, values, keys=None):
+        super(Merge, self).__init__(table, values)
+        self.keys = keys
+        self.table = table
+        self.values = values
 
 
 def has_autoincrement(pk):
@@ -68,10 +73,21 @@ def used_columns(stmt):
     return columns.keys()
 
 
+@compiles(Merge, 'postgresql')
+def postgres_merge(merge_stmt, compiler, **kwargs):
+    stmt = postgresql.insert(merge_stmt.table, merge_stmt.values)
+    column_names = next(iter(stmt.parameters)).keys()
+    stmt = stmt.on_conflict_do_update(
+        index_elements=merge_stmt.keys or stmt.table.primary_key,
+        set_={name: getattr(stmt.excluded, name) for name in column_names},
+    )
+    return compiler.visit_insert(stmt)
+
+
 @compiles(Merge, 'mysql')
-def mysql_merge(insert_stmt, compiler, **kwargs):
-    columns = used_columns(insert_stmt)
-    pk = insert_stmt.table.primary_key
+def mysql_merge(stmt, compiler, **kwargs):
+    columns = used_columns(stmt)
+    pk = stmt.table.primary_key
     autoinc = pk.columns.values()[0] if has_autoincrement(pk) else None
     if autoinc in columns:
         columns.remove(pk)

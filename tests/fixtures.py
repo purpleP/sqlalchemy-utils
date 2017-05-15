@@ -7,9 +7,9 @@ from sqlalchemy.orm import sessionmaker
 Base = declarative_base()
 
 
-@pytest.fixture(params=('sqlite', 'mysql'))
+@pytest.fixture(params=('sqlite', 'postgresql'))
 def session(request):
-    engine = request.getfuncargvalue(request.param)
+    engine = globals()[request.param]()
 
     def fin():
         sess.close()
@@ -22,10 +22,15 @@ def session(request):
 
 
 @pytest.fixture()
-def mysql(request):
+def mysql():
     return create_engine('mysql://root@127.0.0.1:3306/test')
 
 
 @pytest.fixture()
 def sqlite():
     return create_engine('sqlite:///:memory:')
+
+
+@pytest.fixture()
+def postgresql():
+    return create_engine('postgresql://postgres:123@127.0.0.1:5432')

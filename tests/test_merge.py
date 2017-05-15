@@ -54,7 +54,7 @@ def test_merge(session, initial_items, items_to_merge):
         1: {'id': 1, 'change': '1', 'a': 'a', 'b': 'b'},
     }
     session.execute(insert(Foo, tuple(initial_items.values())))
-    session.execute(Merge(Foo, tuple(items.values())))
+    session.execute(Merge(Foo.__table__, tuple(items.values())))
     session.commit()
     foos = {
         foo.id: foo._asdict()
