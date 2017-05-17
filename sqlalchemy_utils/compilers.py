@@ -1,17 +1,19 @@
 from inspect import getmro, getmembers, isclass
 from itertools import tee
 from functools import reduce, partial
+from operator import eq
 
 import re
 
-from sqlalchemy import SMALLINT, Date, Integer
-from sqlalchemy.dialects import mysql
+from sqlalchemy import SMALLINT, Date, Integer, select
+from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.elements import Cast
 from sqlalchemy.sql.expression import Insert, insert
+from sqlalchemy import and_, UniqueConstraint, PrimaryKeyConstraint
 
 
-mysql_types = *(m for name, m in getmembers(mysql, isclass) if name.isupper()),
+mysql_types = tuple(m for name, m in getmembers(mysql, isclass) if name.isupper())
 
 
 class MakeADate(Cast):
@@ -50,49 +52,39 @@ def _sqlite_date(elem, compiler, **kw):
 
 
 class Merge(Insert):
-    pass
-
-
-def has_autoincrement(pk):
-    return (
-        len(pk.columns) == 1
-        and isinstance(pk.columns.values()[0].type, Integer)
-        and pk.columns.values()[0].autoincrement
-    )
-
-
-def used_columns(stmt):
-    columns = stmt.parameters
-    if stmt._has_multi_parameters:
-        columns = columns[0]
-    return columns.keys()
+    def __init__(self, table, values):
+        super(Merge, self).__init__(table, values)
+        self.table = table
+        self.values = values
 
 
 @compiles(Merge, 'mysql')
-def mysql_merge(insert_stmt, compiler, **kwargs):
-    columns = used_columns(insert_stmt)
-    pk = insert_stmt.table.primary_key
-    autoinc = pk.columns.values()[0] if has_autoincrement(pk) else None
-    if autoinc in columns:
-        columns.remove(pk)
-    insert = compiler.visit_insert(insert_stmt, **kwargs)
-    ondup = 'ON DUPLICATE KEY UPDATE'
-    updates = ', '.join(
-        '{name} = VALUES({name})'.format(name=compiler.preparer.quote(c.name))
-        for c in insert_stmt.table.columns
-        if c.name in columns
-    )
-    if autoinc is not None:
-        last_id = '{inc} = LAST_INSERT_ID({inc})'.format(inc=autoinc)
-        if updates:
-            updates = ', '.join((last_id, updates))
-        else:
-            updates = last_id
-    upsert = ' '.join((insert, ondup, updates))
-    return upsert
+def mysql_merge(merge_stmt, compiler, **kwargs):
+    stmt = mysql.insert(merge_stmt.table, merge_stmt.values)
+    update = {name: getattr(stmt.vals, name) for name in stmt.parameters[0]}
+    stmt = stmt.on_duplicate_key_update(update=update)
+    return compiler.process(stmt, **kwargs)
 
 
 @compiles(Merge, 'sqlite')
-def sqlite_merge(insert_stmt, compiler, **kwargs):
-    insert = compiler.visit_insert(insert_stmt, **kwargs)
-    return re.sub('(INSERT)', r'\1 OR REPLACE', insert)
+def sqlite_merge(merge_stmt, compiler, **kwargs):
+    dummy = insert(merge_stmt.table, merge_stmt.values)
+    values, table = dummy.parameters, dummy.table
+    primary_key = table.primary_key
+    unique_columns = next(
+        c.columns
+        for c in table.constraints
+        if isinstance(c, (PrimaryKeyConstraint, UniqueConstraint))
+        and all(c.name in values[0].keys() for c in c.columns)
+    )
+    other_columns = tuple(c for c in table.c if c.name not in values[0])
+    def make_select(column, value):
+        return select((column,)).where(
+            and_(uc == value[uc.name] for uc in unique_columns)
+        )
+    values = tuple(
+        {**v, **{c.name: make_select(c, v) for c in other_columns}}
+        for v in values
+    )
+    stmt = insert(table, values).prefix_with('OR REPLACE')
+    return compiler.process(stmt, **kwargs)
