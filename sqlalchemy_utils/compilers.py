@@ -58,11 +58,29 @@ class Merge(Insert):
         self.values = values
 
 
+@compiles(Merge, 'postgresql')
+def postgres_merge(merge_stmt, compiler, **kwargs):
+    table = merge_stmt.table
+    primary_key = table.primary_key
+    stmt = postgresql.insert(table, merge_stmt.values)
+    stmt = stmt.on_conflict_do_update(
+        index_elements=['id'],
+        set_={
+            k: getattr(stmt.excluded, k)
+            for k in stmt.parameters[0] if k not in primary_key
+        }
+    )
+    return compiler.process(stmt, **kwargs)
+
+
 @compiles(Merge, 'mysql')
 def mysql_merge(merge_stmt, compiler, **kwargs):
     stmt = mysql.insert(merge_stmt.table, merge_stmt.values)
-    update = {name: getattr(stmt.vals, name) for name in stmt.parameters[0]}
-    stmt = stmt.on_duplicate_key_update(update=update)
+    update = {
+        name: getattr(stmt.vals, name)
+        for name in stmt.parameters[0] if name not in stmt.table.primary_key
+    }
+    stmt = stmt.on_duplicate_key_update(**update)
     return compiler.process(stmt, **kwargs)
 
 

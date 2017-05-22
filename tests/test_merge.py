@@ -4,21 +4,25 @@ import pytest
 
 from sqlalchemy import (
     Column,
-    String,
     Integer,
+    MetaData,
+    String,
+    Table,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.dialects import sqlite, mysql
+from sqlalchemy.dialects import sqlite, mysql, postgresql
 from sqlalchemy_utils.compilers import Merge
 
 Base = declarative_base()
 
 
-class Foo(Base):
-    __tablename__ = 'foos'
-    id = Column(Integer, primary_key=True)
-    a = Column(String(10))
-    b = Column(String(10))
+table = Table(
+    'foos',
+    MetaData(),
+    Column('id', Integer, primary_key=True),
+    Column('a', String(10)),
+    Column('b', String(10)),
+)
 
 
 sqlite_stmt = (
@@ -31,16 +35,22 @@ mysql_stmt = (
     '(%s, %s), (%s, %s) '
     'ON DUPLICATE KEY UPDATE a = VALUES(a)'
 )
+postgres_stmt = (
+    'INSERT INTO foos (id, a) VALUES '
+    '(%(id_m0)s, %(a_m0)s), (%(id_m1)s, %(a_m1)s) '
+    'ON CONFLICT (id) DO UPDATE '
+    'SET a = excluded.a'
+)
 
 
 @pytest.mark.parametrize(
     'dialect,expected_stmt',
-    ((sqlite, sqlite_stmt), (mysql, mysql_stmt))
+    ((sqlite, sqlite_stmt), (mysql, mysql_stmt), (postgresql, postgres_stmt))
 )
 def test_merge(dialect, expected_stmt):
     values = (
         dict(id=1, a='a'),
         dict(id=2, a='b'),
     )
-    compiled_stmt = Merge(Foo, values).compile(dialect=dialect.dialect())
+    compiled_stmt = Merge(table, values).compile(dialect=dialect.dialect())
     assert expected_stmt == str(compiled_stmt)
