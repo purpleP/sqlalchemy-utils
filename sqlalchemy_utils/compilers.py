@@ -5,7 +5,7 @@ from operator import eq
 
 import re
 
-from sqlalchemy import SMALLINT, Date, Integer, select
+from sqlalchemy import Date, select
 from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.elements import Cast
