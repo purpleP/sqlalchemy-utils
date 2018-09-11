@@ -1,11 +1,15 @@
+from datetime import date
 from itertools import chain
 
 import pytest
 
 import sqlalchemy as sa
+from sqlalchemy.dialects.mysql import TINYINT
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects import sqlite, mysql, postgresql
-from sqlalchemy_utils.compilers import Merge, visit_in
+from sqlalchemy_utils.compilers import Merge, MakeADate
+
+from tests.fixtures import session
 
 Base = declarative_base()
 
@@ -64,3 +68,29 @@ def test_sqlite_in_with_multiple_columns():
     compiled_in = select_in.compile(dialect=sqlite.dialect())
     compiled_and = select_and.compile(dialect=sqlite.dialect())
     assert str(compiled_in) == str(compiled_and)
+
+
+def test_mysql_to_sqlite(session):
+    Base.metadata.create_all(bind=session.bind)
+    foo = Foo(foo=1)
+    session.add(foo)
+    session.commit()
+    assert [(1,)] == session.query(Foo.foo).all()
+
+
+class Foo(Base):
+    __tablename__ = 'foo'
+    id = sa.Column(sa.Integer, primary_key=True)
+    foo = sa.Column(TINYINT(2))
+
+
+def test_date(session):
+    dates = (
+        date(2016, 1, 1),
+        date(2016, 1, 2),
+    )
+    selects = tuple(sa.select((MakeADate(d),)) for d in dates)
+    data = sa.alias(sa.union(*selects, use_labels=True), 'dates')
+    stmt = sa.select((data,))
+    result = session.execute(stmt).fetchall()
+    assert tuple(chain.from_iterable(result)) == dates

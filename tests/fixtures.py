@@ -10,15 +10,11 @@ Base = declarative_base()
 @pytest.fixture(params=('sqlite', 'postgresql'))
 def session(request):
     engine = globals()[request.param]()
-
-    def fin():
-        sess.close()
-        Base.metadata.drop_all(engine)
-
     Base.metadata.create_all(engine)
-    request.addfinalizer(fin)
     sess = sessionmaker(bind=engine)()
-    return sess
+    yield sess
+    sess.close()
+    Base.metadata.drop_all(engine)
 
 
 @pytest.fixture()
@@ -28,7 +24,7 @@ def mysql():
 
 @pytest.fixture()
 def sqlite():
-    return create_engine('sqlite:///:memory:')
+    return create_engine('sqlite://')
 
 
 @pytest.fixture()
