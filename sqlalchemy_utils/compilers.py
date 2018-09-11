@@ -1,15 +1,13 @@
 from inspect import getmro, getmembers, isclass
 from itertools import tee
 from functools import reduce, partial
-from operator import eq
 
-import re
-
-from sqlalchemy import Date, select
+import sqlalchemy as sa
 from sqlalchemy.dialects import mysql, postgresql
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql import operators
 from sqlalchemy.sql.elements import Cast
-from sqlalchemy.sql.expression import Insert, insert
+from sqlalchemy.sql.expression import Insert, insert, BinaryExpression
 from sqlalchemy import and_, UniqueConstraint, PrimaryKeyConstraint
 
 
@@ -18,7 +16,7 @@ mysql_types = tuple(m for name, m in getmembers(mysql, isclass) if name.isupper(
 
 class MakeADate(Cast):
     def __init__(self, elem):
-        super(MakeADate, self).__init__(elem, Date)
+        super(MakeADate, self).__init__(elem, sa.Date)
 
 
 @compiles(MakeADate)
@@ -30,6 +28,20 @@ def compiles_many(func=None, to=None, types=()):
     if not func:
         return partial(compiles_many, to=to, types=types)
     return reduce(lambda f, t: compiles(t, to)(f), types, func)
+
+
+@compiles(BinaryExpression, 'sqlite')
+def visit_in(element, compiler, **kw):
+    if not element.operator == operators.in_op:
+        return compiler.visit_binary(element, **kw)
+    if len(element.left.element.clauses) == 1:
+        return compiler.visit_binary(element, **kw)
+    cols = element.left.element.clauses
+    clause = sa.or_(
+        sa.and_(c == param for c, param in zip(cols, cl.element.clauses))
+        for cl in element.right.element.clauses
+    )
+    return compiler.visit_clauselist(clause, **kw)
 
 
 @compiles_many(to='sqlite', types=mysql_types)
@@ -97,7 +109,7 @@ def sqlite_merge(merge_stmt, compiler, **kwargs):
     )
     other_columns = tuple(c for c in table.c if c.name not in values[0])
     def make_select(column, value):
-        return select((column,)).where(
+        return sa.select((column,)).where(
             and_(uc == value[uc.name] for uc in unique_columns)
         )
     values = tuple(

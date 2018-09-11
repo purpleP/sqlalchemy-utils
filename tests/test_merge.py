@@ -2,26 +2,20 @@ from itertools import chain
 
 import pytest
 
-from sqlalchemy import (
-    Column,
-    Integer,
-    MetaData,
-    String,
-    Table,
-)
+import sqlalchemy as sa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.dialects import sqlite, mysql, postgresql
-from sqlalchemy_utils.compilers import Merge
+from sqlalchemy_utils.compilers import Merge, visit_in
 
 Base = declarative_base()
 
 
-table = Table(
+table = sa.Table(
     'foos',
-    MetaData(),
-    Column('id', Integer, primary_key=True),
-    Column('a', String(10)),
-    Column('b', String(10)),
+    sa.MetaData(),
+    sa.Column('id', sa.Integer, primary_key=True),
+    sa.Column('a', sa.String(10)),
+    sa.Column('b', sa.String(10)),
 )
 
 
@@ -54,3 +48,19 @@ def test_merge(dialect, expected_stmt):
     )
     compiled_stmt = Merge(table, values).compile(dialect=dialect.dialect())
     assert expected_stmt == str(compiled_stmt)
+
+
+def test_sqlite_in_with_multiple_columns():
+    vals = (
+        (1, '1'),
+        (2, '2'),
+    )
+    cols = table.c.id, table.c.a
+    select_in = sa.select(cols).where(sa.tuple_(*cols).in_(vals))
+    select_and = sa.select(cols).where(sa.or_(
+        sa.and_(col == value for col, value in zip(cols, vs))
+        for vs in vals
+    ))
+    compiled_in = select_in.compile(dialect=sqlite.dialect())
+    compiled_and = select_and.compile(dialect=sqlite.dialect())
+    assert str(compiled_in) == str(compiled_and)
