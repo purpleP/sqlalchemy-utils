@@ -77,7 +77,7 @@ def postgres_merge(merge_stmt, compiler, **kwargs):
 def mysql_merge(merge_stmt, compiler, **kwargs):
     stmt = mysql.insert(merge_stmt.table, merge_stmt.values)
     update = {
-        name: getattr(stmt.vals, name)
+        name: getattr(stmt.inserted, name)
         for name in stmt.parameters[0] if name not in stmt.table.primary_key
     }
     stmt = stmt.on_duplicate_key_update(**update)
