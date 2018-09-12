@@ -32,16 +32,20 @@ def compiles_many(func=None, to=None, types=()):
 
 @compiles(BinaryExpression, 'sqlite')
 def visit_in(element, compiler, **kw):
-    if not element.operator == operators.in_op:
+    try:
+        if not element.operator == operators.in_op:
+            raise
+        if len(element.left.element.clauses) == 2:
+            cols = element.left.element.clauses
+            clause = sa.or_(
+                sa.and_(c == param for c, param in zip(cols, cl.element.clauses))
+                for cl in element.right.element.clauses
+            )
+            return compiler.visit_clauselist(clause, **kw)
+        else:
+            raise Exception()
+    except:
         return compiler.visit_binary(element, **kw)
-    if len(element.left.element.clauses) == 1:
-        return compiler.visit_binary(element, **kw)
-    cols = element.left.element.clauses
-    clause = sa.or_(
-        sa.and_(c == param for c, param in zip(cols, cl.element.clauses))
-        for cl in element.right.element.clauses
-    )
-    return compiler.visit_clauselist(clause, **kw)
 
 
 @compiles_many(to='sqlite', types=mysql_types)

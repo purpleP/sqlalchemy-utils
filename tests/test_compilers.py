@@ -68,6 +68,14 @@ def test_sqlite_in_with_multiple_columns():
     compiled_in = select_in.compile(dialect=sqlite.dialect())
     compiled_and = select_and.compile(dialect=sqlite.dialect())
     assert str(compiled_in) == str(compiled_and)
+    update_in = table.update().where(sa.tuple_(*cols).in_(vals))
+    update_and = table.update().where(sa.or_(
+        sa.and_(col == value for col, value in zip(cols, vs))
+        for vs in vals
+    ))
+    compiled_in = update_in.compile(dialect=sqlite.dialect())
+    compiled_and = update_and.compile(dialect=sqlite.dialect())
+    assert str(compiled_in) == str(compiled_and)
 
 
 def test_mysql_to_sqlite(session):
